@@ -1,5 +1,5 @@
 var mqtt=require("mqtt");
-var client=mqtt.connect("mptt://192.168.1.32:1883");
+var client=mqtt.connect("mptt://192.168.0.100:1883");
 
 client.on('connect',function(){
 
