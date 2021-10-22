@@ -20,6 +20,7 @@ server.on('clientDisconnected', function(client) {
 
 // fired when a message is received
 server.on('published', function(packet, client) {
+  console.log(packet);
   console.log('Published', packet.payload.toString());
 });
 
