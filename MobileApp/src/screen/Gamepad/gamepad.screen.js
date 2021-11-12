@@ -77,7 +77,7 @@ class GamepadScreen extends React.Component {
     var uniqueId = DeviceInfo.getUniqueId();
     console.log(uniqueId);
     var clientId = 'Mobile_' + uniqueId;
-    MQTT.createClient({uri: 'mqtt://192.168.1.57:1883', clientId: clientId})
+    MQTT.createClient({uri: 'mqtt://192.168.0.100:1883', clientId: clientId})
       .then(client => {
         this.setState({mqttClient: client});
 

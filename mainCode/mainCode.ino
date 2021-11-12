@@ -7,10 +7,9 @@
 #include "PubSubClient.h" 
 #include <LiquidCrystal_I2C.h>
 #include <WiFiEspUdp.h> 
-#include <Stepper.h>
-
-
-#define STEPS 100
+#include <Stepper.h> 
+#include "DFRobotDFPlayerMini.h"
+ 
 
 // change this to match your SD shield or module;
 const int chipSelect = 10;
@@ -24,8 +23,14 @@ char mqttUserKey[50] = "";
 byte byte_array[4]; 
 char* lastCommand="";
 
-LiquidCrystal_I2C lcd(0x27, 16, 2);
-Stepper stepper(STEPS, 4, 5, 6, 7);
+LiquidCrystal_I2C lcd(0x27, 16, 2); 
+int motor1pin1 = 6;
+int motor1pin2 = 5;
+int motorSpeed=50;
+#define ENA_pin = A2;
+
+
+DFRobotDFPlayerMini myDFPlayer;
 
 int status = WL_IDLE_STATUS;     // the Wifi radio's status
 
@@ -38,6 +43,7 @@ void setup()
 {
   // Open serial communications and wait for port to open:
   Serial.begin(115200);
+ // mp3PlayerSoftwareSerial.begin(9600);
   
   while (!Serial) {
     ; // wait for serial port to connect. Needed for Leonardo only
@@ -53,19 +59,33 @@ void setup()
     return;
   }
   Serial.println("initialization done.");
-     
+
   OpenSettingFile();
-  ConnectWF(); 
-    
   
+  CheckMp3Player();
+  ConnectWF(); 
   IPAddress server(mqttAdres[0],mqttAdres[1],mqttAdres[2],mqttAdres[3]);
  
   client.setServer(server, 1883);
   client.setCallback(callback);
   MQTT_connect();
-  
-  stepper.setSpeed(30);
+
+   playSound("StartDevice");
+   
+  //stepper.setSpeed(30);
     
+}
+void CheckMp3Player()
+{  
+  Serial2.begin(9600);
+   if (!myDFPlayer.begin(Serial2)) {  //Use softwareSerial to communicate with mp3.
+    WriteScreenMessage("MP3 Player","Calismadi");
+    while(true);
+  }
+
+  myDFPlayer.setTimeOut(500); //Set serial communictaion time out 500ms
+  myDFPlayer.volume(25);  //Set volume value (0~30).
+  
 }
 
  
@@ -90,6 +110,7 @@ void MQTT_connect() {
       Serial.print(client.state());
       Serial.println(" try again in 5 seconds");
       WriteScreenMessage("MQTT Servise","Hata Aldi");
+      playSound("MQTTError");
       // Wait 5 seconds before retrying
       delay(10000);
     }
@@ -99,17 +120,19 @@ void MQTT_connect() {
 
 
  void callback(char* topic, char* payload, unsigned int length) {
-  if ((char*)topic=="/Command")
+  Serial.print("Message arrived [");
+  Serial.print(topic);
+  Serial.print("] ");
+  for (int i = 0; i < length; i++) {
+  Serial.print((char)payload[i]);
+  }
+  Serial.println(); 
+      
+  if ((char*)topic==(char*)"/Command")
   { 
      lastCommand=(char*)payload;
       
-      Serial.print("Message arrived [");
-      Serial.print(topic);
-      Serial.print("] ");
-      for (int i = 0; i < length; i++) {
-      Serial.print((char)payload[i]);
-      }
-      Serial.println(); 
+      
      WriteScreenMessage(topic,payload);
   }
 }
@@ -129,34 +152,47 @@ void ConnectWF(){
   }
    while ( status != WL_CONNECTED) {
     Serial.print("Attempting to connect to WPA SSID: ");
-    Serial.println(ssid);
+    Serial.println((char*)ssid);
     WriteScreenMessage("WF  Baglaniyor",".....");
-    status = WiFi.begin(ssid, pass);
+    status = WiFi.begin((char*)ssid,(char*) pass);
     if (status != WL_CONNECTED)
     {
       WriteScreenMessage(ssid,"Baglanamadi");
+      playSound("WfConnectError");
+      delay(10000);
     }
   }
   WriteScreenMessage("WF Adi",ssid);
-  
+  playSound("WfConnectConnect");
   printWifiStatus();
 }
 
-void playSound()
+void playSound(String message)
 {
-    /*audioPlayer.speakerPin = 3; //5,6,11 or 46 on Mega, 9 on Uno, Nano, etc
-    audioPlayer.setVolume(30);
-  
-    audioPlayer.play("alert.wav");
-    int playState=audioPlayer.isPlaying();
-    if (playState==1)
-    {
-      Serial.println("play.");
-    }else
-    {
+
+  if (message=="WfConnectError")
+  {
+      myDFPlayer.play(5);  //Play the first mp3
+      delay(1000);
+  }
+
+  if (message=="WfConnectConnect")
+  {
       
-        Serial.println("Not Playing.");
-    }*/
+    myDFPlayer.play(3);  //Play the first mp3
+    
+  }
+
+  if (message=="MQTTError")
+  {
+    myDFPlayer.play(0);  //Play the first mp3
+  }
+  if (message=="StartDevice")
+  {
+     myDFPlayer.play(12);  //Play the first mp3
+  }
+
+    
 }
  
  
@@ -168,26 +204,84 @@ void loop()
   
  if (!client.connected())
  {
-        Serial.println("Mqtt servis bagli degil");
+      Serial.println("Mqtt servis bagli degil");
       if (WiFi.status()!= WL_CONNECTED){
- 
+        RunProcess("Stop");
         Serial.println("Wifi Bagli degil");
-       // delay(500);
+       
+        delay(500);
       } 
-  
-      delay(500);
+
+     // delay(500);
       //
  }else{
     client.loop();
 
+    RunProcess("lastCommand");
     if (lastCommand=="Up"){
-      stepper.step(100);
+     // stepper.step(100);
     }
    // Serial.println("Mqtt servis bagli  ");
-     delay(100);
+     delay(10);
  }
   
-  delay(500);
+  delay(50);
+}
+
+void RunProcess(String process)
+{
+
+  if (process=="Run")
+  {
+    //ileri 
+    digitalWrite(motor1pin1, HIGH);
+    digitalWrite(motor1pin2, LOW);
+
+  }
+  if (process=="Back")
+  {
+    
+    digitalWrite(motor1pin1,LOW);
+    digitalWrite(motor1pin2, HIGH);
+  }
+
+  if (process=="Left")
+  {
+     
+  }
+
+  if (process=="Right")
+  {
+     
+  }
+
+  if (process=="Stop")
+  {
+    digitalWrite(motor1pin1, LOW);
+    digitalWrite(motor1pin2, LOW);
+  }
+
+  if (process=="UpSpeed"){
+    motorSpeed=motorSpeed-10;
+    if (motoSpeed>0)
+    {      
+       analogWrite(ENA_pin, motorSpeed);
+    }else{
+      motorSpeed=10;
+    }
+  }
+
+  if (process=="DownSpeed"){
+    
+    motorSpeed=motorSpeed+10;
+    if (motorSpeed<255){      
+       analogWrite(ENA_pin, motorSpeed);
+    }else
+    {
+      motorSpeed=250;
+    }
+  }
+  
 }
 
 
