@@ -1,5 +1,6 @@
 # arduinoRemoteControlCar
-The project about remote control Arduino base car  with android application
+
+![Proje genel Bakis](https://github.com/yilmazt81/arduinoRemoteControlCar/blob/main/repository-open-graph-template.jpg)
 
 # Android Screen
 
