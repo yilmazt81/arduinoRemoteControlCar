@@ -9,7 +9,7 @@ The project about remote control Arduino base car  with android application
 
 ![Devre Semasi](https://github.com/yilmazt81/arduinoRemoteControlCar/blob/main/Screen/DevreSemasi.jpg)
 
-# MQTT Baglanti Test
+# WF Connection Test
 
 ![MQTT Baglanti](https://github.com/yilmazt81/arduinoRemoteControlCar/blob/main/Screen/DeviceConnectWfMqtt.jpg)
 
