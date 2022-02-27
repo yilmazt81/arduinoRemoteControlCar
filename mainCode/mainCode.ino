@@ -8,8 +8,9 @@
 #include <LiquidCrystal_I2C.h>
 #include <WiFiEspUdp.h> 
 #include <Stepper.h> 
-#include "DFRobotDFPlayerMini.h"
- 
+#include "DFRobotDFPlayerMini.h"  
+#include "NewPing.h"
+#include <ArduinoJson.h>
 
 // change this to match your SD shield or module;
 const int chipSelect = 10;
@@ -20,17 +21,23 @@ byte mqttAdres[4] = "";
 char mqttport[10] = "";
 char mqttUserName[50] = "";
 char mqttUserKey[50] = "";
+char mqttAdress[150] = "";
+ 
 byte byte_array[4]; 
 char* lastCommand="";
-
+ //CertStore certStore;
 LiquidCrystal_I2C lcd(0x27, 16, 2); 
 int motor1pin1 = 6;
 int motor1pin2 = 5;
 int motorSpeed=50;
-#define ENA_pin = A2;
-
+float duration, distance;
+ 
+#define TRIGGER_PIN  2
+#define ECHO_PIN  3
+#define MAX_DISTANCE  700  
 
 DFRobotDFPlayerMini myDFPlayer;
+NewPing sonar(TRIGGER_PIN, ECHO_PIN, MAX_DISTANCE);
 
 int status = WL_IDLE_STATUS;     // the Wifi radio's status
 
@@ -39,11 +46,11 @@ int status = WL_IDLE_STATUS;     // the Wifi radio's status
 WiFiEspClient  espClient;
 PubSubClient client(espClient);
 
+
 void setup()
 {
   // Open serial communications and wait for port to open:
   Serial.begin(115200);
- // mp3PlayerSoftwareSerial.begin(9600);
   
   while (!Serial) {
     ; // wait for serial port to connect. Needed for Leonardo only
@@ -62,22 +69,25 @@ void setup()
 
   OpenSettingFile();
   
-  CheckMp3Player();
+  //CheckMp3Player();
   ConnectWF(); 
-  IPAddress server(mqttAdres[0],mqttAdres[1],mqttAdres[2],mqttAdres[3]);
  
-  client.setServer(server, 1883);
+  client.setServer("broker.hivemq.com", 1883);
   client.setCallback(callback);
   MQTT_connect();
-
+ 
+ 
    playSound("StartDevice");
-   
   //stepper.setSpeed(30);
     
 }
 void CheckMp3Player()
 {  
-  Serial2.begin(9600);
+   //WriteScreenMessage("MP3 Player","kontrol ediliyor");
+  /*
+   Serial.println("kontrol ediliyor");
+    
+   Serial2.begin(115200);
    if (!myDFPlayer.begin(Serial2)) {  //Use softwareSerial to communicate with mp3.
     WriteScreenMessage("MP3 Player","Calismadi");
     while(true);
@@ -85,6 +95,7 @@ void CheckMp3Player()
 
   myDFPlayer.setTimeOut(500); //Set serial communictaion time out 500ms
   myDFPlayer.volume(25);  //Set volume value (0~30).
+  */
   
 }
 
@@ -93,17 +104,17 @@ void MQTT_connect() {
   
  
   while (!client.connected()) {
-     
-    if (client.connect((char*)deviceName)) {
+  
+    if (client.connect(deviceName,"","")) {
       WriteScreenMessage("MQTT Servise","Baglandi");
       Serial.println("connected");
       // Once connected, publish an announcement...
-      //client.publish("outTopic", "hello world");
-      // ... and resubscribe
-
-        boolean success = client.subscribe("/Command");
+    
+        boolean success = client.subscribe("Command");
+        
         Serial.print("Subscribe returned ");
         Serial.println(success);
+       
             
     } else {
       Serial.print("failed, rc=");
@@ -127,11 +138,10 @@ void MQTT_connect() {
   Serial.print((char)payload[i]);
   }
   Serial.println(); 
-      
-  if ((char*)topic==(char*)"/Command")
+  
+  if (String(topic)=="Command")
   { 
-     lastCommand=(char*)payload;
-      
+     lastCommand=(char*)payload;     
       
      WriteScreenMessage(topic,payload);
   }
@@ -152,9 +162,11 @@ void ConnectWF(){
   }
    while ( status != WL_CONNECTED) {
     Serial.print("Attempting to connect to WPA SSID: ");
-    Serial.println((char*)ssid);
+    Serial.println(String(ssid));
     WriteScreenMessage("WF  Baglaniyor",".....");
-    status = WiFi.begin((char*)ssid,(char*) pass);
+    
+    status = WiFi.begin("FiberHGW_TP5BB6_2.4GHz","kz4tuWPT");
+ 
     if (status != WL_CONNECTED)
     {
       WriteScreenMessage(ssid,"Baglanamadi");
@@ -169,7 +181,7 @@ void ConnectWF(){
 
 void playSound(String message)
 {
-
+  /*
   if (message=="WfConnectError")
   {
       myDFPlayer.play(5);  //Play the first mp3
@@ -191,8 +203,7 @@ void playSound(String message)
   {
      myDFPlayer.play(12);  //Play the first mp3
   }
-
-    
+  */
 }
  
  
@@ -224,8 +235,17 @@ void loop()
    // Serial.println("Mqtt servis bagli  ");
      delay(10);
  }
+
   
-  delay(50);
+ distance = sonar.ping_cm(); 
+ 
+ char bufferT[256];
+ DynamicJsonDocument doc(1024); 
+ doc["distance"]   = distance;
+ size_t n = serializeJson(doc, bufferT);
+ 
+ client.publish("DeviceData",bufferT,n);
+ delay(500);
 }
 
 void RunProcess(String process)
@@ -262,55 +282,36 @@ void RunProcess(String process)
   }
 
   if (process=="UpSpeed"){
-    motorSpeed=motorSpeed-10;
+   /* motorSpeed=motorSpeed-10;
     if (motoSpeed>0)
     {      
        analogWrite(ENA_pin, motorSpeed);
     }else{
       motorSpeed=10;
-    }
+    }*/
   }
 
   if (process=="DownSpeed"){
-    
+    /*
     motorSpeed=motorSpeed+10;
     if (motorSpeed<255){      
        analogWrite(ENA_pin, motorSpeed);
     }else
     {
       motorSpeed=250;
-    }
+    }*/
   }
   
 }
 
 
-void printWifiStatus()
-{
-  // print the SSID of the network you're attached to
-  Serial.print("SSID: ");
-  Serial.println(WiFi.SSID());
 
-  // print your WiFi shield's IP address
-  IPAddress ip = WiFi.localIP();
-  Serial.print("IP Address: ");
-  Serial.println(ip);
-  char ipno2[26] ;
-  sprintf(ipno2, "%d.%d.%d.%d", ip[0], ip[1], ip[2], ip[3]);
-   
-   WriteScreenMessage("Ip Adres",ipno2);
 
-  // print the received signal strength
-  long rssi = WiFi.RSSI();
-  Serial.print("Signal strength (RSSI):");
-  Serial.print(rssi);
-  Serial.println(" dBm");
-  
-}
 void WriteScreenMessage(String messageLine1,String messageLine2)
 {
     lcd.noCursor();
     lcd.clear();
+    
     //lcd.cursor();
     lcd.setCursor(0, 0);
     lcd.print(messageLine1);  
@@ -364,7 +365,7 @@ void OpenSettingFile(){
   }
 
  
-  if (ini.getValue("Setting", "mqttAdres", buffer, bufferLen)) {
+  /*if (ini.getValue("Setting", "mqttAdres", buffer, bufferLen)) {
    Serial.print("mqtt Adres >");
    //memset(mqttAdres, 0, sizeof(mqttAdres));
    Serial.println(buffer);   
@@ -373,7 +374,7 @@ void OpenSettingFile(){
       mqttAdres[i] = byte_array[i];
       
     }    
-  }
+  }*/
 
   if (ini.getValue("Setting", "mqttPort", mqttport, bufferLen)) {
    Serial.print("mqtt port >");
@@ -390,8 +391,36 @@ void OpenSettingFile(){
    //memset(mqttAdres, 0, sizeof(mqttAdres));
    Serial.println(mqttUserKey);   
   }
-}
 
+   if (ini.getValue("Setting", "mqttAdress", mqttAdress , bufferLen)) {
+   Serial.print("mqttAdress >");
+   //memset(mqttAdres, 0, sizeof(mqttAdres));
+   Serial.println(mqttAdress);   
+  }
+
+  
+}
+void printWifiStatus()
+{
+  // print the SSID of the network you're attached to
+  Serial.print("SSID: ");
+  Serial.println(WiFi.SSID());
+
+  // print your WiFi shield's IP address
+  IPAddress ip = WiFi.localIP();
+  Serial.print("IP Address: ");
+  Serial.println(ip);
+  char ipno2[26] ;
+  sprintf(ipno2, "%d.%d.%d.%d", ip[0], ip[1], ip[2], ip[3]);
+   
+   WriteScreenMessage("Ip Adres",ipno2);
+
+  // print the received signal strength
+  long rssi = WiFi.RSSI();
+  Serial.print("Signal strength (RSSI):");
+  Serial.print(rssi);
+  Serial.println(" dBm");
+}
 
 void Char2IP(char* str) {
   char *ptr;

@@ -77,15 +77,23 @@ class GamepadScreen extends React.Component {
     var uniqueId = DeviceInfo.getUniqueId();
     console.log(uniqueId);
     var clientId = 'Mobile_' + uniqueId;
-    MQTT.createClient({uri: 'mqtt://192.168.0.100:1883', clientId: clientId})
+    MQTT.createClient({
+      uri: 'mqtt://broker.hivemq.com:1883',
+      //user: '',
+      //pass: '',
+      //auth: true,
+      clientId: clientId,
+    })
       .then(client => {
         this.setState({mqttClient: client});
 
         client.on('closed', function () {
-          console.log('mqtt.event.closed');
+          console.log('closed');
+          //this.setState({mqttConnectionState: false});
         });
         client.on('connect', function () {
-          console.log('mqtt.event.connected');
+          console.log('connected');
+          //this.setState({mqttConnectionState: true});
         });
       })
       .catch(err => {
@@ -109,7 +117,7 @@ class GamepadScreen extends React.Component {
   }
   buttonClickAction(command) {
     if (this.state.mqttConnectionState) {
-      this.state.mqttClient.publish('/Command', command, 0, false);
+      this.state.mqttClient.publish('Command', command, 0, false);
     }
   }
   operateValue = (field, t, callback) => {

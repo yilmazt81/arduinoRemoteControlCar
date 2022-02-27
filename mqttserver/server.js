@@ -3,8 +3,11 @@ var mosca = require('mosca');
 var Connection = require('tedious').Connection;  
  
 var settings = {
-  port: 1883 , 
-  
+  host: 'a64a3d777db44c70978e098646b0b768.s2.eu.hivemq.cloud',
+  port: 8883,
+  protocol: 'mqtts',
+  username: 'turcoUser',
+  password: 'trs_Dhf245'
 };
 
 var server = new mosca.Server(settings);
